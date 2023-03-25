@@ -22,8 +22,3 @@ shipColour (tuple): The color of the space ship, specified as an RGB tuple.
 intialLives (int): The number of lives the player starts with.
 width (int): The width of the game screen, in pixels.
 height (int): The height of the game screen, in pixels.
-Credits
-This game was created by [Your Name], based on the classic Asteroids game by Atari. The game assets (sprites, sound effects) were created by [Other People or Source], and are free to use and distribute under the [License Name] license.
-
-License
-This code is licensed under the [License Name] license. You are free to use, modify, and distribute it as you like, as long as you give credit to the original author(s) and include this license notice.
