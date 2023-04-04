@@ -13,7 +13,7 @@ class spaceShip (base_object):
         [-25,25],
         [-25,-25]
         ],x,y,colour)
-        
+        self.r=25
         self.heading=0
         self.speed = 0
         self.dX = False
@@ -64,6 +64,10 @@ class spaceShip (base_object):
             self.x = width
         self.rotateNodes()
 
+    def jump(self,width,height):
+        self.x = randrange (0,width,1)       
+        self.y = randrange (0,height,1)
+
     def deployShields(self):
         if(self.shieldOverloaded == False):
             self.shieldsUp = True
@@ -87,6 +91,11 @@ class spaceShip (base_object):
             if (interval > 10000):
                 self.shieldOverloaded = False
                 self.setColour((0,200,0))
+    def getVertices(self):
+        vertices = []
+        for node in self.nodes:
+            vertices.append([node[0]+self.x, node[1]+self.y])
+        return vertices
                 
         
 class pewPew(base_object):
@@ -143,7 +152,17 @@ class asteroid(base_object):
         self.a=a
         self.s=s
         self.p=p
+        
+        self.rr=randrange(-9,9,1)/100 
 
+
+        self.vertices = self.getVertices()
+
+    def getVertices(self):
+        vertices = []
+        for node in self.nodes:
+            vertices.append([node[0]+self.x, node[1]+self.y])
+        return vertices
 
     def returnCords(self,r):
         cords  = []
@@ -156,7 +175,9 @@ class asteroid(base_object):
             )
         return cords
         
-    def doMovement (self,w,h):                  
+    def doMovement (self,w,h):
+    
+        self.angle+=self.rr                  
         self.x += cos(radians(self.a))*self.s
         self.y += sin(radians(self.a))*self.s
         if (self.x > w):
@@ -167,7 +188,7 @@ class asteroid(base_object):
             self.y = 0
         elif(self.y < 0):        
             self.y = h
-    
+        self.rotateNodes()    
     def sinwv(self,t,frequency,offset,amp):
         return sin(frequency*t+offset)*(amp-1)+amp;
  
@@ -180,7 +201,8 @@ class asteroid(base_object):
         )
         pygame.draw.circle(screen,colour,[self.x,self.y],self.r)
 
-    def detectHit(self,x,y):
+
+    def detectHit(self, x, y):
         dx = x - self.x
         dy = y - self.y        
         if (dx > self.r or dy > self.r):
@@ -190,20 +212,40 @@ class asteroid(base_object):
             if (dist <= self.r):
                 return True
             else:
+                for vertex in self.getVertices():
+                    vdx = vertex[0] - x
+                    vdy = vertex[1] - y
+                    vdist = sqrt(vdx**2 + vdy**2)
+                    if vdist <= 1:
+                        return True
                 return False
 
-    def detectCollision(self,x,y,r):
-        dx = x - self.x
-        dy = y - self.y        
-        if (dx > self.r+r or dy > self.r+r):
+    def detectCollision(self, ship):
+        # calculate the distance between the centers of the asteroid and the ship
+        dx = ship.x - self.x
+        dy = ship.y - self.y
+        # if the distance is greater than the sum of the radii, then there is no collision
+        if (dx > self.r + ship.r or dy > self.r + ship.r):
             return False
         else:
             dist = sqrt((dx * dx) + (dy * dy))
-            if (dist <= self.r+r):
-                return True
-            else:
+            # if the distance is greater than or equal to the sum of the radii, there isn't a collision
+            if (dist > self.r+20+ ship.r):
                 return False
-            
+            else:
+                asteroid_vertices = self.getVertices()
+                ship_vertices = ship.getVertices()
+
+                for a_index, a_vert in enumerate(asteroid_vertices):
+                    for s_index, s_vert in enumerate(ship_vertices):
+                        a_vert_next = asteroid_vertices[(a_index + 1) % len(asteroid_vertices)]
+                        s_vert_next = ship_vertices[(s_index + 1) % len(ship_vertices)]
+                        collision = intersect(a_vert, a_vert_next, s_vert, s_vert_next)
+                        if collision:
+                            return True
+                return False
+     
+
     def breakUp(self):
         if (self.p > 0):
             rr = randrange(0,180,1)
@@ -223,7 +265,21 @@ class asteroid(base_object):
         else:
             return False
 
-                  
+
+
+
+
+def intersect(p1, q1, p2, q2):
+    """
+    Check if line segment p1-q1 intersects line segment p2-q2.
+    Code adapted from: https://stackoverflow.com/a/20679579
+    """
+    def ccw(A,B,C):
+        return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1]) * (C[0]-A[0])
+
+    return ccw(p1,q1,p2) != ccw(p1,q1,q2) and ccw(p2,q2,p1) != ccw(p2,q2,q1)
+
+
 class life(base_object):
 
     def __init__(self,x,y):
@@ -235,3 +291,56 @@ class life(base_object):
         ],x,y,(200,200,0))
         self.setAngle(-90)
         self.rotateNodes()
+        
+        
+class powerUp (base_object):
+
+    def __init__(self,x,y):
+        # Initialize powerUp object with random powerType and color
+        self.r=10
+        self.powerType = randrange(3,6,1) # 3, 4, or 5
+        super().__init__(
+            self.returnCords(self.r,self.powerType), # Get coordinates of vertices for powerUp shape
+            x,y,(200,200,0) # Set initial position and color
+        )
+        self.setAngle(-90) # Set initial angle
+        
+        # Set initial radians and speed for movement
+        self.radians = radians(randrange(1,360,1))
+        self.speed=0.25
+        
+    def returnCords(self,r,numNodes):
+        # Get coordinates of vertices for powerUp shape
+        cords  = []
+        for i in range(0,numNodes,1):            
+            cords.append([
+            r * cos((i*360/numNodes) * pi/180),
+            r * sin((i*360/numNodes) * pi/180)
+            ]
+            )
+        return cords
+
+    def doMovement(self,width,height): 
+        # Move powerUp object and wrap around screen if necessary
+        self.x += cos(self.radians) * self.speed
+        self.y += sin(self.radians) * self.speed
+        
+        if (self.x > width):
+            self.x = 0
+        elif (self.x < 0):
+            self.x = width
+        if(self.y > height):
+            self.y = 0
+        elif(self.y < 0):
+            self.y = height
+                
+    def detectHit(self, x, y):
+        # Check if powerUp object has been hit by another object
+        dx = x - self.x
+        dy = y - self.y        
+        if (dx > self.r or dy > self.r):
+            return False          
+        dist = sqrt((dx * dx) + (dy * dy))
+        if (dist > self.r):
+            return False
+        return True
