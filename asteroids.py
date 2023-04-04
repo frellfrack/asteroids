@@ -5,7 +5,7 @@ import pygame
 from random import randrange, random
 from math import pi, sin, cos, sqrt, acos, radians, degrees
 from time import time
-from game_objects import spaceShip, pewPew, asteroid, life
+from game_objects import spaceShip, pewPew, asteroid, life, powerUp
 
 # Defining the class for the Asteroids game
 class asteroidsGame:
@@ -15,10 +15,21 @@ class asteroidsGame:
 
         # Setting up the default values
         self.defaults = {
-            "width": 800,
-            "height": 600
+        "width":800,
+        "height":600,
+        "title":"Asteroids",
+        "background":(0,0,0),
+        "labelColour":(255,255,255),
+        "shipColour":(255,200,0),
+        "pewColour":(0,0,255),
+        "font":"arial",
+        "pewRange":300,
+        "maxPews":10,
+        "pewTime":100,
+        "intialLives":3,
+        "highScoreFile":'high_scores.txt'
         }
-
+        
         # Setting up the game over variable
         self.game_over = False
 
@@ -43,13 +54,19 @@ class asteroidsGame:
         self.lives = self.options["intialLives"]
         self.score = 0
 
+        # Intial Pew Settings
+        self.pewTime = self.options['pewTime']
+        self.maxPews = self.options['maxPews']
+        self.pewRange = self.options['pewRange']
+        
         # Setting up the pewPew and asteroids list
         self.pewPews = []
         self.asteroids = []
-
+        self.powers=[]
+        
         # Setting up the spawn time for the asteroids
         self.spawnTime = 5000
-
+        self.powerTime = 100000
         # Setting up the centre of the screen
         self.centreX = self.width / 2
         self.centreY = self.height / 2
@@ -71,12 +88,17 @@ class asteroidsGame:
         self.K_SPACE = False
         self.K_s = False
         self.K_y = False
-
-        # Setting up the previous time and previous pew time
+        self.K_j = False
+        
+        # Setting up the previous timers
         self.prevTime = time() * 1000
         self.prevPew = time() * 1000
         self.prevSpawn = time() * 1000
+        self.prevPower = time() * 1000
 
+
+        self.high_score = self.get_high_score()
+        
         # Starting the main loop
         self.mainLoop()
 
@@ -84,10 +106,12 @@ class asteroidsGame:
         while not self.done:
             self.getEvents()  # Get user input
             self.clock.tick()  # Tick the clock
+
             if(self.game_over == False):
 
                 self.spawnTimer()  # Spawn asteroids
                 self.ship.shieldsTimer()  # Update shield timer
+                self.powerTimer()
                 self.parseInputs()  # Handle user input
                 self.doMovements()  # Move game objects
                 if (self.ship.shieldsUp == False):
@@ -97,11 +121,13 @@ class asteroidsGame:
                         if (self.lives > 0):                   
                             self.respawn()  # Respawn ship
                         else:
-                            self.game_over = True  # Game over              
+                            self.game_over = True  # Game over
+                            self.update_high_scores(self.score)              
                 self.screen.fill(self.options['background'])  # Fill screen with background color
                 self.displayPews()  # Draw pew pews
                 self.displayAsteroids() # Draw the asteroids
                 self.ship.drawObject(self.screen) # Draw the ship
+                self.displayPowers()
                 self.displayScore() # Display the score
                 self.displayLives() # Display lives
                 pygame.display.flip() # Update the screen
@@ -127,6 +153,9 @@ class asteroidsGame:
         self.ship.setColour((0,200,200))                            
         self.ship.setAngle(0)
         self.ship.speed=0
+        self.pewTime = self.options['pewTime']
+        self.maxPews = self.options['maxPews']
+        self.pewRange = self.options['pewRange']
         self.lives -= 1
                 
     def displayScore(self):
@@ -156,6 +185,10 @@ class asteroidsGame:
         if (self.K_SPACE == True):
             self.pew()          
 
+        if (self.K_j == True):
+            self.ship.jump(self.width,self.height)          
+
+ 
     def spawnTimer(self):
         if (len(self.asteroids) < 3):
             now = time() * 2000
@@ -173,23 +206,38 @@ class asteroidsGame:
         
         ast = asteroid(x,y,r,a,s,p)
         self.asteroids.append(ast)
+
+    def powerTimer(self):
+        if (len(self.asteroids) < 3):
+            now = time() * 2000
+            if (now - self.prevPower > self.powerTime):        
+                self.spawn_power()    
+                self.prevPower = now
+
+    def spawn_power (self):
+        x = randrange(100,self.width-100,1)  + self.ship.x
+        y = randrange(100,self.height-100,1) - self.ship.y
+        pUp = powerUp(x,y)
+        self.powers.append(pUp)
         
+    
     def doMovements(self):
         self.ship.doMovement(self.width,self.height)
         self.doAsteroids()
         self.doPews()
+        self.doPowers()
         
     def pew(self):
         now = time() * 1000
-        if (now - self.prevPew > self.options['pewTime']):
-            if (len(self.pewPews) < 5):
+        if (now - self.prevPew > self.pewTime):
+            if (len(self.pewPews) < self.maxPews):
                 pew = pewPew(
                 self.ship.x + self.ship.nodes[0][0],
                 self.ship.y + self.ship.nodes[0][1],
                 self.options['pewColour'],
                 self.ship.angle,
                 self.ship.speed*2+1,
-                self.options['pewRange']
+                self.pewRange
                 )
                 self.pewPews.append(pew)
             self.prevPew=now
@@ -202,10 +250,14 @@ class asteroidsGame:
                 pew.doMovement(self.width,self.height)
                 self.detectHits(pew)
 
+    def doPowers(self):
+        for power in self.powers[:]:
+            power.doMovement(self.width,self.height)
+
     def detectHits(self,pew):        
         for ast in self.asteroids[:]:
             if (ast.detectHit(pew.x,pew.y)):
-                self.score += ast.r
+                self.score += int(ast.r)
                 subAsts = ast.breakUp()
                 if (ast in self.asteroids):
                     self.asteroids.remove(ast)
@@ -215,13 +267,27 @@ class asteroidsGame:
                     for subAst in subAsts[:]:
                         self.asteroids.append(subAst)    
 
+        for power in self.powers[:]:
+            if (power.detectHit(pew.x,pew.y)):
+                p_type = power.powerType
+                
+                if (p_type==3):
+                   self.pewRange += 10 
+                if (p_type==4):
+                   self.maxPews += 10
+                if (p_type==5):
+                   self.lives += 1
+                if (power in self.powers):
+                    self.powers.remove(power)     
+
     def gameOver (self):
+
         self.drawLabel ((self.centreX,self.centreY),"GAME OVER",30)
         self.drawLabel ((self.centreX,self.centreY+30),"Press Y To Play Again",20)
-
+        self.display_high_scores()
     def detectCrash(self):
         for ast in self.asteroids[:]:        
-            if (ast.detectCollision(self.ship.x,self.ship.y,25)):
+            if (ast.detectCollision(self.ship)):
                 return True
         return False
 
@@ -255,6 +321,8 @@ class asteroidsGame:
                     self.K_s=True
                 elif (event.key == pygame.K_y):
                     self.K_y=True
+                elif (event.key == pygame.K_j):
+                    self.K_j=True
             elif event.type == pygame.KEYUP:
                 if (event.key == pygame.K_UP):
                     self.K_UP=False
@@ -270,6 +338,8 @@ class asteroidsGame:
                     self.K_s=False
                 elif (event.key == pygame.K_y):
                     self.K_y=False
+                elif (event.key == pygame.K_j):
+                    self.K_j=False
 
     def displayPews(self):
         stop = len(self.pewPews)
@@ -280,12 +350,49 @@ class asteroidsGame:
         for ast in self.asteroids[:]:
             ast.drawObject(self.screen)
 
+    def displayPowers(self):
+        for power in self.powers[:]:
+            power.drawObject(self.screen)
+
     def printFonts(self):
         fonts = pygame.font.get_fonts()
         print(len(fonts))
         for f in fonts:
             print(f)            
 
+    def save_high_scores(self,scores):
+        with open(self.options['highScoreFile'], 'w') as file:
+            for score in scores:
+                file.write(str(score) + '\n')
+
+    def load_high_scores(self):
+        with open(self.options['highScoreFile'], 'r') as file:
+            scores = []
+            for line in file:
+                scores.append(int(line.strip()))
+        return scores
+
+    def update_high_scores(self,player_score):
+        high_scores = self.load_high_scores()
+        high_scores.append(player_score)
+        high_scores.sort(reverse=True)
+        high_scores = high_scores[:10]  # Keep only the top 10 scores
+        self.save_high_scores(high_scores)
+
+
+    def display_high_scores(self):
+        high_scores = self.load_high_scores()
+        self.drawLabel ((self.centreX,self.centreY+50),"HIGH SCORES",20)
+        for i, score in enumerate(high_scores):
+            scoreStr="%i"%(score)
+            self.drawLabel ((self.centreX,self.centreY+70+(i*22)),scoreStr ,20)
+    def get_high_score(self):
+        scores = self.load_high_scores()
+        if scores:
+            return max(scores)
+        else:
+            return 0
+            
 if __name__ == "__main__":
 
     game =  asteroidsGame({
@@ -298,6 +405,8 @@ if __name__ == "__main__":
     "pewColour":(0,0,255),
     "font":"arial",
     "pewRange":300,
+    "maxPews":10,
     "pewTime":100,
-    "intialLives":3
+    "intialLives":3,
+    "highScoreFile":'high_scores.txt'
     })
