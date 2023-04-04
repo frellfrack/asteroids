@@ -10,14 +10,3 @@ Usage
 To run the game, simply execute the asteroids.py file with Python:
 
 python asteroids.py
-The game will start immediately, and you can control the space ship using the arrow keys (up/down to move forward/backward, left/right to rotate). You can fire projectiles using the space bar, and deploy shields using the 's' key. The game is over when the player loses all lives or crashes into an asteroid.
-
-Options
-The game has several customizable options that can be set when creating a new instance of the asteroidsGame class. These options are passed as a dictionary argument to the constructor function, and include:
-
-title (str): The title of the game window.
-background (tuple): The background color of the game screen, specified as an RGB tuple.
-shipColour (tuple): The color of the space ship, specified as an RGB tuple.
-intialLives (int): The number of lives the player starts with.
-width (int): The width of the game screen, in pixels.
-height (int): The height of the game screen, in pixels.
