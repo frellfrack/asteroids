@@ -2,11 +2,13 @@
 
 # Importing necessary modules
 import pygame
-from random import randrange, random
-from math import pi, sin, cos, sqrt, acos, radians, degrees
+from random import randrange, random,randint
+
+from math import pi, sin, cos, sqrt, acos, radians, degrees, atan
 from time import time
 from game_objects import spaceShip, pewPew, asteroid, life, powerUp
 
+#from ai import SpaceGameAI
 # Defining the class for the Asteroids game
 class asteroidsGame:
 
@@ -27,7 +29,8 @@ class asteroidsGame:
         "maxPews":10,
         "pewTime":100,
         "intialLives":3,
-        "highScoreFile":'high_scores.txt'
+        "highScoreFile":'high_scores.txt',
+        "AI_PLAY" : False
         }
         
         # Setting up the game over variable
@@ -65,8 +68,8 @@ class asteroidsGame:
         self.powers=[]
         
         # Setting up the spawn time for the asteroids
-        self.spawnTime = 5000
-        self.powerTime = 100000
+        self.spawnTime = 10000
+        self.powerTime = 200000
         # Setting up the centre of the screen
         self.centreX = self.width / 2
         self.centreY = self.height / 2
@@ -100,42 +103,45 @@ class asteroidsGame:
         self.high_score = self.get_high_score()
         
         # Starting the main loop
-        self.mainLoop()
+        if (self.options["AI_PLAY"]==False):    
+            self.mainLoop()
 
     def mainLoop(self):
         while not self.done:
             self.getEvents()  # Get user input
             self.clock.tick()  # Tick the clock
-
             if(self.game_over == False):
-
-                self.spawnTimer()  # Spawn asteroids
-                self.ship.shieldsTimer()  # Update shield timer
-                self.powerTimer()
-                self.parseInputs()  # Handle user input
-                self.doMovements()  # Move game objects
-                if (self.ship.shieldsUp == False):
-                    if(self.K_s==True):
-                        self.ship.deployShields()  # Deploy shields
-                    if(self.detectCrash()):  # Check for collisions
-                        if (self.lives > 0):                   
-                            self.respawn()  # Respawn ship
-                        else:
-                            self.game_over = True  # Game over
-                            self.update_high_scores(self.score)              
-                self.screen.fill(self.options['background'])  # Fill screen with background color
-                self.displayPews()  # Draw pew pews
-                self.displayAsteroids() # Draw the asteroids
-                self.ship.drawObject(self.screen) # Draw the ship
-                self.displayPowers()
-                self.displayScore() # Display the score
-                self.displayLives() # Display lives
-                pygame.display.flip() # Update the screen
+                self.updateGame()
             else:
                 self.gameOver ()
                 pygame.display.flip()
                 if (self.K_y==True):
                     self.playAgain()
+
+    def updateGame(self):
+        
+        self.spawnTimer()  # Spawn asteroids
+        self.ship.shieldsTimer()  # Update shield timer
+        self.powerTimer()
+        self.parseInputs()  # Handle user input
+        self.doMovements()  # Move game objects
+        if (self.ship.shieldsUp == False):
+            if(self.K_s==True):
+                self.ship.deployShields()  # Deploy shields
+            if(self.detectCrash()):  # Check for collisions
+                if (self.lives > 0):                   
+                    self.respawn()  # Respawn ship
+                else:
+                    self.game_over = True  # Game over
+                    self.update_high_scores(self.score)              
+        self.screen.fill(self.options['background'])  # Fill screen with background color
+        self.displayPews()  # Draw pew pews
+        self.displayAsteroids() # Draw the asteroids
+        self.ship.drawObject(self.screen) # Draw the ship
+        self.displayPowers()
+        self.displayScore() # Display the score
+        self.displayLives() # Display lives
+        pygame.display.flip() # Update the screen
 
     def playAgain(self):
         self.lives=4
@@ -157,6 +163,8 @@ class asteroidsGame:
         self.maxPews = self.options['maxPews']
         self.pewRange = self.options['pewRange']
         self.lives -= 1
+
+
                 
     def displayScore(self):
         self.drawLabel ((20,20),str(int(self.score)),12)
@@ -188,22 +196,40 @@ class asteroidsGame:
         if (self.K_j == True):
             self.ship.jump(self.width,self.height)          
 
- 
+    def bastardTrajectory(self, targetX, targetY, originX, originY):
+        return degrees(atan((targetY - originY)/(   targetX - originX)))
+
     def spawnTimer(self):
-        if (len(self.asteroids) < 3):
+        
+        maxAsteroids = int(1 + self.score/1000) # initial value plus one asteroid per 1000 points
+        spawnTime = int(1000 - 10*self.score/1000) # initial value minus 10 ms per 1000 points
+       
+        if (maxAsteroids>10):
+            maxAsteroids =10
+       
+        if (len(self.asteroids) < maxAsteroids):
             now = time() * 2000
-            if (now - self.prevSpawn > self.spawnTime):        
-                self.spawn_asteroid()    
+            
+            if (now - self.prevSpawn > spawnTime):  
+                if (randint(1, 5) == 1):
+                    self.spawn_asteroid(aim_at_ship=True)
+                    self.spawn_asteroid(aim_at_ship=True)
+                else:
+                    self.spawn_asteroid(aim_at_ship=False)      
                 self.prevSpawn = now
      
-    def spawn_asteroid (self):
-        x = randrange(100,self.width-100,1)  + self.ship.x
-        y = randrange(100,self.height-100,1) - self.ship.y
+    def spawn_asteroid (self,aim_at_ship=False):
+        x = randrange(0,self.width,1)  + self.ship.x
+        y = randrange(0,self.height,1) + self.ship.y
         r = randrange(30,100,1)
         a = randrange(0,180)
         s = random()
         p = randrange(2,6,1)
         
+        if(aim_at_ship ==True):
+            a = self.bastardTrajectory( self.ship.x,self.ship.y,x,y)
+            s = 10
+            print("Incoming") 
         ast = asteroid(x,y,r,a,s,p)
         self.asteroids.append(ast)
 
@@ -252,7 +278,10 @@ class asteroidsGame:
 
     def doPowers(self):
         for power in self.powers[:]:
-            power.doMovement(self.width,self.height)
+            if (power.range == 0):
+                self.powers.remove(power)
+            elif (power.range > 0):
+              power.doMovement(self.width,self.height)
 
     def detectHits(self,pew):        
         for ast in self.asteroids[:]:
@@ -392,7 +421,39 @@ class asteroidsGame:
             return max(scores)
         else:
             return 0
-            
+    
+    # AI INTERFACE SET AI_PLAY to True
+    
+    def get_state(self):
+        shieldState=''
+        if (self.ship.shieldsUp == False and self.ship.shieldOverloaded== False ):
+            shieldState = 'DOWN_CAN'
+        elif (self.ship.shieldsUp == False and self.ship.shieldOverloaded== True):
+            shieldState = 'DOWN_CANT'
+        else:
+            shieldState = 'UP'
+        state = {
+            'ship': self.ship,
+            'asteroids': self.asteroids,
+            'powerups': self.powers,
+            'pewpews' : self.pewPews,
+            'score': self.score,
+            'lives': self.lives,
+            'shield_state': shieldState,
+            'game_over' : self.game_over
+        }
+        return state
+        
+    def sendCommands (self,commands):
+        self.K_UP = commands["K_UP"]
+        self.K_LEFT = commands["K_LEFT"]
+        self.K_RIGHT = commands["K_RIGHT"]
+        self.K_SPACE = commands["K_SPACE"]
+        self.K_s = commands["K_s"]
+        self.K_j = commands["K_j"]
+        self.K_y = commands["K_y"]
+    
+        
 if __name__ == "__main__":
 
     game =  asteroidsGame({
@@ -404,9 +465,35 @@ if __name__ == "__main__":
     "shipColour":(255,200,0),
     "pewColour":(0,0,255),
     "font":"arial",
-    "pewRange":300,
-    "maxPews":10,
+    "pewRange":200,
+    "maxPews":3,
     "pewTime":100,
     "intialLives":3,
-    "highScoreFile":'high_scores.txt'
+    "highScoreFile":'high_scores.txt',
+    "AI_PLAY":False # Work in progress
     })
+    
+#    ai = SpaceGameAI(game.width,game.height)
+#    if (game.options['AI_PLAY'] == True):
+#  
+#        dqn = DeepQNetwork(game.get_state_size(), game.get_action_size())
+#        state = game.get_state()
+#        while not game.game_over:
+#            # get Q-values for each action
+#            q_values = dqn.predict(state)
+#            # select action based on Q-values
+#            action = np.argmax(q_values)
+#            # send action to game
+#            game.sendCommands(game.actions[action])
+#            # update game state
+#            game.updateGame()
+            # get new state
+#            new_state = game.get_state()
+            # get reward for current action
+#            reward = game.get_reward()
+            # store transition in replay memory
+ #           dqn.remember(state, action, reward, new_state, game.game_over)
+            # update current state
+ #           state = new_state
+            # train DQN on a batch of transitions from replay memory
+  #          dqn.train_batch()
