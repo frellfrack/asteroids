@@ -308,7 +308,7 @@ class powerUp (base_object):
         # Set initial radians and speed for movement
         self.radians = radians(randrange(1,360,1))
         self.speed=0.25
-        
+        self.range=2000
     def returnCords(self,r,numNodes):
         # Get coordinates of vertices for powerUp shape
         cords  = []
@@ -321,6 +321,8 @@ class powerUp (base_object):
         return cords
 
     def doMovement(self,width,height): 
+    
+        self.range -=1
         # Move powerUp object and wrap around screen if necessary
         self.x += cos(self.radians) * self.speed
         self.y += sin(self.radians) * self.speed
