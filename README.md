@@ -12,9 +12,15 @@ To run the game, simply execute the asteroids.py file with Python:
 python asteroids.py
 
 Controlls are:
+
 Left Arrow: Turn Left
+
 Forward Arrow: Thrust
+
 Right Arrow: Turn Right
+
 Space: Fire
+
 S: Deploy Shields
+
 J: Jump to random position
