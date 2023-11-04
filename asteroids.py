@@ -15,10 +15,15 @@ class asteroidsGame:
     # The constructor function, which is called when the object is created
     def __init__(self, options):
 
+
+        #  Initializing pygame
+        pygame.init()
+
+        screen_info = pygame.display.Info()
         # Setting up the default values
         self.defaults = {
-        "width":800,
-        "height":600,
+        "width":screen_info.current_w,
+        "height":screen_info.current_h,
         "title":"Asteroids",
         "background":(0,0,0),
         "labelColour":(255,255,255),
@@ -39,8 +44,7 @@ class asteroidsGame:
         # Combining the default values and the given options
         self.options = {**self.defaults, **options}
 
-        # Initializing pygame
-        pygame.init()
+        
 
         # Setting up the screen size
         self.width = self.options['width']
@@ -48,7 +52,7 @@ class asteroidsGame:
 
         # Creating the screen
         size = [self.width, self.height]
-        self.screen = pygame.display.set_mode(size)
+        self.screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
 
         # Defining some constants
         self.TWOPI = pi * 2
@@ -456,9 +460,9 @@ class asteroidsGame:
         
 if __name__ == "__main__":
 
+
     game =  asteroidsGame({
-    "width":800,
-    "height":600,
+ 
     "title":"Asteroids",
     "background":(0,0,0),
     "labelColour":(255,255,255),
